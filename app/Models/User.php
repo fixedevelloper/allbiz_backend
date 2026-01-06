@@ -77,7 +77,6 @@ class User extends Authenticatable
     {
         return $this->hasMany(Transaction::class);
     }
-    // App\Models\User.php
     public function referralLink(): string
     {
         return config('app.frontend_url') . '/auth/signup?ref=' . $this->id;
