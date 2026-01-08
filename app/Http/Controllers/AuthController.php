@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Investment;
+use App\Rules\PhoneNumber;
 use App\Services\ReferralService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,15 +24,14 @@ class AuthController extends Controller
     }
 
     /**
-     * Inscription + investissement
+     * Inscription
      * @param Request $request
      * @return JsonResponse
      */
     public function register(Request $request)
     {
         $request->validate([
-            'name' => 'required|string',
-            'email' => 'required|email|unique:users',
+            'phone' => ['required', new PhoneNumber, 'unique:users,phone'],
             'password' => 'required|string|min:6',
             'referrer_id' => 'nullable|exists:users,id',
         ]);
@@ -41,8 +41,6 @@ class AuthController extends Controller
         try {
             // 1️⃣ Créer l'utilisateur
             $user = User::create([
-                'name' => $request->name,
-                'email' => $request->email,
                 'phone' => $request->phone,
                 'password' => Hash::make($request->password),
                 'referrer_id' => $request->referrer_id,
@@ -54,10 +52,14 @@ class AuthController extends Controller
             $token = $user->createToken('auth_token')->plainTextToken;
 
             return response()->json([
-                'success' => true,
-                'message' => 'Inscription et investissement réussis',
-                'user' => $user,
-                'token' => $token,
+                'status' => 'success',
+                'message' => 'Inscription réussie',
+                'data' => [
+                    'id' => $user->id,
+                    'phone' => $user->phone,
+                    'roles' => $user->role,
+                    'token' => $token, // 🔹 Token utilisable côté NextAuth
+                ],
             ]);
 
         } catch (\Exception $e) {
@@ -72,11 +74,11 @@ class AuthController extends Controller
     {
         logger($request->all());
         $request->validate([
-            'email' => 'required|string',
+            'phone' => ['required', new PhoneNumber],
             'password' => 'required|string',
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $user = User::where('phone', $request->phone)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
@@ -87,8 +89,14 @@ class AuthController extends Controller
         $token = $user->createToken('api-token')->plainTextToken;
 
         return response()->json([
-            'user' => $user,
-            'token' => $token
+            'status' => 'success',
+            'message' => 'Connexion réussie',
+            'data' => [
+                'id' => $user->id,
+                'phone' => $user->phone,
+                'roles' => $user->roles,
+                'token' => $token,
+            ],
         ]);
     }
 

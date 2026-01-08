@@ -6,13 +6,36 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\ProcessWithdrawalPayment;
+use App\Models\Country;
+use App\Models\Operator;
 use App\Models\Transaction;
+use App\Models\WithdrawAccount;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class WithdrawalController extends Controller
 {
+    public function index()
+    {
+        // Charge les opérateurs en même temps pour éviter le N+1
+        $countries = Country::with('operators')->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $countries
+        ]);
+    }
+    public function operators()
+    {
+        // Charge les opérateurs en même temps pour éviter le N+1
+        $operators = Operator::query()->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $operators
+        ]);
+    }
     /**
      * Fourchettes autorisées
      */
@@ -34,8 +57,7 @@ class WithdrawalController extends Controller
     {
         $request->validate([
             'amount'   => ['required', 'integer', 'in:' . implode(',', $this->allowedAmounts)],
-            'operator' => 'required|string',
-            'phone'    => 'required|string|min:8',
+            'withdraw_account_id' => 'required|integer',
         ]);
 
         $user = Auth::user();
@@ -43,7 +65,7 @@ class WithdrawalController extends Controller
         DB::beginTransaction();
 
         try {
-            /** 1️⃣ Vérifier retrait en attente */
+            // ✅ Vérifier retrait en attente
             $pending = Transaction::where('user_id', $user->id)
                 ->where('type', 'withdrawal')
                 ->where('status', 'pending')
@@ -55,31 +77,28 @@ class WithdrawalController extends Controller
                 ], 400);
             }
 
-            /** 2️⃣ Calcul solde disponible */
-            $totalCommission = Transaction::where('user_id', $user->id)
-                ->where('type', 'commission')
-                ->where('status', 'success')
-                ->sum('amount');
+            // ✅ Vérifier le compte
+            $account = WithdrawAccount::where('id', $request->withdraw_account_id)
+                ->where('user_id', $user->id)
+                ->first();
 
-            $totalWithdrawn = Transaction::where('user_id', $user->id)
-                ->where('type', 'withdrawal')
-                ->whereIn('status', ['pending', 'success'])
-                ->sum('amount');
-
-          //  $availableBalance = $totalCommission - $totalWithdrawn;
-            $availableBalance = $user->balance;
-
-            if ($request->amount > $availableBalance) {
+            if (!$account) {
                 return response()->json([
-                    'message' => 'Solde insuffisant'
+                    'message' => 'Compte de retrait invalide'
                 ], 400);
             }
 
-            /** 3️⃣ Calcul taxe */
+            // ✅ Solde disponible
+            $availableBalance = $user->balance;
+            if ($request->amount > $availableBalance) {
+                return response()->json(['message' => 'Solde insuffisant'], 400);
+            }
+
+            // ✅ Calcul taxe
             $tax = (int) round($request->amount * 0.10);
             $netAmount = $request->amount - $tax;
 
-            /** 4️⃣ Créer transaction retrait */
+            // ✅ Créer la transaction
             $withdrawal = Transaction::create([
                 'user_id'   => $user->id,
                 'reference' => uniqid('WD-'),
@@ -87,17 +106,20 @@ class WithdrawalController extends Controller
                 'type'      => 'withdrawal',
                 'status'    => 'pending',
                 'meta'      => [
-                    'operator'   => $request->operator,
-                    'phone'      => $request->phone,
+                    'account_id' => $account->id,
+                    'operator'   => $account->operator->name ?? null,
+                    'phone'      => $account->phone,
                     'tax'        => $tax,
                     'net_amount' => $netAmount,
                 ],
             ]);
-            $user->update([
-               'balance'=> $availableBalance-$netAmount
-            ]);
-            ProcessWithdrawalPayment::dispatch($withdrawal)
-                ->delay(now()->addSeconds(5));
+
+            // ✅ Mettre à jour le solde
+            $user->decrement('balance', $request->amount);
+
+            // ✅ Job asynchrone
+            ProcessWithdrawalPayment::dispatch($withdrawal)->delay(now()->addSeconds(5));
+
             DB::commit();
 
             return response()->json([
@@ -113,13 +135,10 @@ class WithdrawalController extends Controller
 
         } catch (\Throwable $e) {
             DB::rollBack();
-
             logger()->error($e);
-
-            return response()->json([
-                'message' => 'Erreur lors du retrait'
-            ], 500);
+            return response()->json(['message' => 'Erreur lors du retrait'], 500);
         }
+
     }
 }
 

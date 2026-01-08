@@ -6,22 +6,23 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Operator extends Model
+class Country extends Model
 {
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'name',
-        'image_url',
+        'iso',
+        'code',
         'status',
-        'country_id',
+        'image_url',
     ];
 
     /**
-     * Récupère le pays auquel appartient cet opérateur
+     * Récupère tous les opérateurs associés à ce pays
      */
-    public function country()
+    public function operators()
     {
-        return $this->belongsTo(Country::class);
+        return $this->hasMany(Operator::class);
     }
 }

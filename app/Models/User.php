@@ -19,11 +19,8 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'name',
-        'email',
         'phone',
-        'image_url',
-        'user_type',
+        'role',
         'password',
         'referrer_id',
         'balance',
@@ -79,7 +76,11 @@ class User extends Authenticatable
     }
     public function referralLink(): string
     {
-        return config('app.frontend_url') . '/auth/signup?ref=' . $this->id;
+        return config('app.frontend_url') . '/auth/register?ref=' . $this->id;
+    }
+    public function withdrawAccounts()
+    {
+        return $this->hasMany(WithdrawAccount::class);
     }
 
 }

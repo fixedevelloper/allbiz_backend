@@ -3,75 +3,80 @@
 namespace App\Http\Controllers;
 
 use App\Models\Roulette;
+use App\Models\Transaction;
 use App\Models\User;
+use App\Rules\PhoneNumber;
+use App\Services\MoneyInService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Models\Investment;
 use App\Services\ReferralService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class InvestmentController extends Controller
 {
     protected $referralService;
+    protected $moneyinService;
 
-    public function __construct(ReferralService $referralService)
+    public function __construct(MoneyInService $moneyInService,ReferralService $referralService)
     {
         $this->referralService = $referralService;
+        $this->moneyinService=$moneyInService;
     }
 
     /**
      * Créer un nouvel investissement (1 seul par utilisateur)
      * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
 
 
     public function store(Request $request)
     {
         $request->validate([
-            'amount' => 'required|integer|in:1000,2000,5000,10000',
-            'referrer_id' => 'nullable|integer|exists:users,id'
+            'amount'      => 'required|integer|in:1000,2000,5000,10000',
+            'phone'       => ['required', new PhoneNumber],
+            'operator_id' => 'required|exists:operators,id',
+            'country_id'  => 'nullable|exists:countries,id',
         ]);
 
         $user = Auth::user();
 
-        // ❌ Un seul investissement
+        // ❌ Un seul investissement actif
         if ($user->investment) {
             return response()->json([
                 'success' => false,
-                'message' => 'Vous avez déjà un investissement actif.'
+                'message' => 'Vous avez déjà un investissement actif.',
             ], 400);
-        }
-
-        // ❌ Auto-parrainage interdit
-        if ($request->referrer_id && $request->referrer_id == $user->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Auto-parrainage interdit.'
-            ], 403);
         }
 
         DB::beginTransaction();
 
         try {
-            // 🔒 Définir le parrain UNE SEULE FOIS
-            if (!$user->referrer_id && $request->referrer_id) {
-                $user->update([
-                    'referrer_id' => $request->referrer_id,
-                    'membership_level'=>$request->amount
-                ]);
-            }
-            $user->update([
-                'membership_level'=>$request->amount
-            ]);
-            // 1️⃣ Créer l’investissement
-            $investment = Investment::create([
-                'user_id' => $user->id,
-                'amount' => $request->amount,
+
+            /** 🔐 Génération référence AVANT paiement */
+            $referenceId = Str::uuid()->toString();
+
+            /** 1️⃣ Créer transaction (PENDING) */
+            $transaction = Transaction::create([
+                'user_id'   => $user->id,
+                'reference' => $referenceId,
+                'amount'    => $request->amount,
+                'status'    => 'pending',
+                'type'      => 'investment',
             ]);
 
-            // 2️⃣ Calcul commission
+            /** 2️⃣ Créer investissement */
+            $investment = Investment::create([
+                'user_id'        => $user->id,
+                'amount'         => $request->amount,
+                'transaction_id'=> $transaction->id,
+            ]);
+
+            /** 3️⃣ Commission parrainage */
             $commission = null;
             if ($user->referrer_id) {
                 $commission = $this->referralService->handleReferral($investment);
@@ -79,9 +84,18 @@ class InvestmentController extends Controller
 
             DB::commit();
 
+            /** 4️⃣ Initier paiement (APRÈS COMMIT) */
+            $this->moneyinService->initialise([
+                'reference'   => $referenceId,
+                'amount'      => $request->amount,
+                'phone'       => $request->phone,
+                'operator_id' => $request->operator_id,
+            ]);
+
             return response()->json([
                 'success' => true,
-                'message' => 'Investissement créé avec succès',
+                'message' => 'Investissement initialisé avec succès',
+                'referenceId' => $referenceId,
                 'investment' => $investment,
                 'commission' => $commission ? [
                     'amount' => $commission->amount,
@@ -96,10 +110,11 @@ class InvestmentController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de la création de l’investissement'
+                'message' => 'Erreur lors de la création de l’investissement',
             ], 500);
         }
     }
+
 
     public function spin(Request $request, Roulette $roulette)
     {

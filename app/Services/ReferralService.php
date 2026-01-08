@@ -79,14 +79,6 @@ class ReferralService
             'roulette_count' => $rouletteCount,
         ]);
 
-/*        // Générer les roulettes
-        for ($i = 0; $i < $rouletteCount; $i++) {
-            $range = $this->rouletteRanges[$rouletteCount];
-            Roulette::create([
-                'commission_id' => $commission->id,
-                'amount' => rand($range[0], $range[1]),
-            ]);
-        }*/
         Roulette::create([
             'commission_id' => $commission->id,
             'type' => $rouletteCount>1?'2step':'1step',

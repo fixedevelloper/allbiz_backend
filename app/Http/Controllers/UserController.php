@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\WithdrawAccount;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -45,5 +47,53 @@ class UserController extends Controller
             'referral_link' => $request->user()->referralLink(),
         ]);
     }
+    public function balance(Request $request)
+    {
+        return response()->json([
+            'balance' => $request->user()->balance,
+        ]);
+    }
 
+    /**
+     * Lister les comptes de retrait de l'utilisateur connecté
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function index(Request $request)
+    {
+        $accounts = $request->user()->withdrawAccounts()->with('operator')->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $accounts,
+        ]);
+    }
+
+    /**
+     * Ajouter un compte de retrait
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'phone' => 'required|string|max:20',
+            'account_number' => 'nullable|string|max:50',
+            'operator_id' => 'required|exists:operators,id',
+        ]);
+
+        $account = WithdrawAccount::create([
+            'name' => $request->name,
+            'phone' => $request->phone,
+            'account_number' => $request->account_number,
+            'operator_id' => $request->operator_id,
+            'user_id' => $request->user()->id,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => $account,
+        ]);
+    }
 }

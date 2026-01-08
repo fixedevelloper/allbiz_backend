@@ -11,6 +11,28 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::create('countries', function (Blueprint $table) {
+            $table->id();
+            $table->string('name')->unique();
+            $table->string('iso', 3)->unique();
+            $table->string('code', 5); // pour +237, +33 etc.
+            $table->boolean('status')->default(1);
+            $table->string('image_url')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+        });
+
+        Schema::create('operators', function (Blueprint $table) {
+            $table->id();
+            $table->string('name')->unique();
+            $table->string('image_url')->nullable();
+            $table->boolean('status')->default(1);
+            $table->foreignId('country_id')->constrained('countries')->onDelete('cascade');
+            $table->timestamps();
+            $table->softDeletes();
+        });
+
+
         Schema::create('investments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
@@ -50,20 +72,13 @@ return new class extends Migration
         });
 
 
-        Schema::create('operators', function (Blueprint $table) {
-        $table->id();
-        $table->string('name'); // MTN, Orange, Moov
-        $table->string('code'); // mtn, orange, moov
-        $table->string('country_code'); // CM, CI, SN
-        $table->timestamps();
-    });
 
         Schema::create('transactions', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('user_id');
             $table->string('reference')->nullable();
             $table->integer('amount');
-            $table->enum('type', ['commission', 'withdrawal']);
+            $table->enum('type', ['commission', 'withdrawal','investment']);
             $table->enum('status', ['pending', 'success','failed']);
             $table->json('meta')->nullable();
             $table->foreignId('operator_id')->nullable()->constrained('operators')->onDelete('cascade');

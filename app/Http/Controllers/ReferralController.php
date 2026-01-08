@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Roulette;
+use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -47,27 +48,56 @@ class ReferralController extends Controller
     }
     public function myTransactions(Request $request)
     {
-        $transactions = $request->user()
-            ->transactions()
+        $withdraws = Transaction::where('user_id', $request->user()->id)
+            ->where('type', 'withdrawal')
             ->latest()
-            ->get();
+            ->get()
+            ->map(function ($w) {
+
+                $operatorName = $w->meta['operator'] ?? null;
+
+                return [
+                    'id' => $w->id,
+                    'amount' => $w->amount,
+                    'status' => $w->status === 'success',
+                    'created_at' => $w->created_at,
+                    'operator' => $operatorName ? [
+                        'name' => $operatorName,
+
+                ] : null,
+            ];
+        });
 
         return response()->json([
-            'total_commission' => $request->user()
-                ->transactions()
-                ->where('type', 'commission')
-                ->where('status', 'success')
-                ->sum('amount'),
-
-            'total_withdrawn' => $request->user()
-                ->transactions()
-                ->where('type', 'withdrawal')
-                ->where('status', 'success')
-                ->sum('amount'),
-
-            'data' => $transactions,
+            'success' => true,
+            'data' => $withdraws
         ]);
     }
+
+    public function myCommissions(Request $request)
+    {
+        $commissions = $request->user()
+            ->commissions() // récupère toutes les commissions où l'utilisateur est le referrer
+            ->with(['referrer:id,phone', 'investment:id,amount'])
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($commission) {
+                return [
+                    'id' => $commission->id,
+                    'phone' => $commission->referrer->phone ?? null,
+                    'investment_amount' => $commission->investment->amount ?? 0,
+                    'roulette_count' => $commission->roulette_count,
+                    'amount' => $commission->amount,
+                    'created_at' => $commission->created_at->toDateTimeString(),
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => $commissions
+        ]);
+    }
+
     public function myRoulettes(Request $request)
     {
         $roulettes = $request->user()
@@ -90,13 +120,14 @@ class ReferralController extends Controller
     }
     public function myRouletteById(Request $request,$id)
     {
-        $roulette = Roulette::query()
+        logger($id);
+/*        $roulette = Roulette::query()
             ->where('id', $id)
             ->where('status', false)
-            ->firstOrFail();
+            ->firstOrFail();*/
 
         return response()->json([
-            'data' => $roulette
+            'data' => Roulette::find($id)
         ]);
     }
 
