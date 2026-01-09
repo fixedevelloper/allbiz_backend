@@ -30,7 +30,9 @@ class AuthController extends Controller
      */
     public function register(Request $request)
     {
-        $request->validate([
+
+        try {
+            $request->validate([
             'phone' => ['required', new PhoneNumber, 'unique:users,phone'],
             'password' => 'required|string|min:6',
             'referrer_id' => 'nullable|exists:users,id',
@@ -38,7 +40,7 @@ class AuthController extends Controller
 
         // Transaction pour créer user + investissement
         DB::beginTransaction();
-        try {
+
             // 1️⃣ Créer l'utilisateur
             $user = User::create([
                 'phone' => $request->phone,

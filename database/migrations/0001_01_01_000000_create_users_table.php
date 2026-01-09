@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('phone')->unique();
             $table->enum('role', ['admin','customer']);
             $table->string('password');
-            $table->integer('membership_level')->default(1000);
+            $table->integer('membership_level')->default(0);
             $table->decimal('balance', 15, 2)->default(0);
             // Parrainage
             $table->unsignedBigInteger('referrer_id')->nullable(); // parrain direct

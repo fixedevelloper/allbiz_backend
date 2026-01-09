@@ -40,7 +40,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/withdraw-accounts', [UserController::class, 'store']);
 
 });
-
+Route::get('/momo/status/{referenceId}', [UserController::class, 'checkStatus']);
 Route::get('/roulettes/{id}',[ReferralController::class, 'myRouletteById']);
 
 
