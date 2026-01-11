@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\InvestmentController;
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ReferralController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WithdrawalController;
@@ -38,7 +40,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user/balance', [UserController::class, 'balance']);
     Route::get('/withdraw-accounts', [UserController::class, 'index']);
     Route::post('/withdraw-accounts', [UserController::class, 'store']);
+    Route::get('/products', [ProductController::class, 'index']);
+    Route::get('/products/{slug}', [ProductController::class, 'show']);
 
+    Route::get('/orders', [OrderController::class, 'index']);
+    Route::get('/orders/{id}', [OrderController::class, 'show']);
+    Route::post('/orders', [OrderController::class, 'store']);
 });
 Route::get('/momo/status/{referenceId}', [UserController::class, 'checkStatus']);
 Route::get('/roulettes/{id}',[ReferralController::class, 'myRouletteById']);

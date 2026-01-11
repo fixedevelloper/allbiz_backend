@@ -13,9 +13,7 @@ class UserSeeder extends Seeder
     {
         // Admin
         User::create([
-            'name' => 'Admin',
-            'phone' => '690000000',
-            'email' => 'admin@test.com',
+            'phone' => '229690000000',
             'password' => Hash::make('password'),
             'role' => 'admin',
             'membership_level' => 10000,
@@ -23,7 +21,7 @@ class UserSeeder extends Seeder
         ]);
 
         // Parrain principal
-        $referrer = User::create([
+/*        $referrer = User::create([
             'name' => 'Parrain',
             'phone' => '690000001',
             'email' => 'parrain@test.com',
@@ -60,7 +58,7 @@ class UserSeeder extends Seeder
             ['name' => 'MTN', 'code' => 'mtn', 'country_code' => 'CM'],
             ['name' => 'Orange', 'code' => 'orange', 'country_code' => 'CM'],
             ['name' => 'Moov', 'code' => 'moov', 'country_code' => 'CI'],
-        ]);
+        ]);*/
 
     }
 }

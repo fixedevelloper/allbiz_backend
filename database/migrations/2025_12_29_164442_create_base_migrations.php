@@ -71,8 +71,6 @@ return new class extends Migration
             $table->timestamps();
         });
 
-
-
         Schema::create('transactions', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('user_id');
@@ -85,6 +83,7 @@ return new class extends Migration
             $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
             $table->timestamps();
         });
+
 
 
     }

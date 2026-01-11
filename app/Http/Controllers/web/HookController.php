@@ -15,6 +15,13 @@ class HookController extends Controller
     /**
      * Afficher tous les pays avec leurs opérateurs
      */
+    public function dashboard()
+    {
+        return view('dashboard');
+    }
+    /**
+     * Afficher tous les pays avec leurs opérateurs
+     */
     public function index()
     {
         $countries = Country::with('operators')->get();

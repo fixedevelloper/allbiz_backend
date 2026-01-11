@@ -1,58 +1,52 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestion Pays & Opérateurs</title>
-
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <!-- Optionnel: ton CSS personnalisé -->
-    <style>
-        body {
-            padding-top: 70px;
-        }
-        .card img {
-            object-fit: cover;
-        }
-    </style>
+    <meta charset="utf-8" />
+    <title>ALLBIZ Dashboard</title>
+    <meta http-equiv="x-ua-compatible" content="ie=edge" />
+    <meta name="description" content="" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta property="og:title" content="" />
+    <meta property="og:type" content="" />
+    <meta property="og:url" content="" />
+    <meta property="og:image" content="" />
+    <!-- Favicon -->
+    <link rel="shortcut icon" type="image/x-icon" href="{{asset('assets/imgs/theme/favicon.svg')}}" />
+    <!-- Template CSS -->
+    <script src="{{asset('assets/js/vendors/color-modes.js')}}"></script>
+    <link href="{{asset('assets/css/main.css')}}?v=6.0" rel="stylesheet" type="text/css" />
 </head>
+
 <body>
+<div class="screen-overlay"></div>
+@include('layouts.aside')
+<main class="main-wrap">
+@include('layouts.header')
+    <section class="content-main">
+        @yield('content')
 
-<!-- Navbar -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
-    <div class="container">
-        <a class="navbar-brand" href="{{ route('countries.index') }}">Gestion Pays & Opérateurs</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav ms-auto">
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ route('countries.index') }}">Liste des pays</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ route('countries.create') }}">Ajouter un pays</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ route('operators.create') }}">Ajouter un opérateur</a>
-                </li>
-            </ul>
+        <!-- card end// -->
+    </section>
+    <footer class="main-footer font-xs">
+        <div class="row pb-30 pt-15">
+            <div class="col-sm-6">
+                <script>
+                    document.write(new Date().getFullYear());
+                </script>
+                &copy; ALLBIZ .
+            </div>
+            <div class="col-sm-6">
+                <div class="text-sm-end">All rights reserved</div>
+            </div>
         </div>
-    </div>
-</nav>
-
-<!-- Contenu principal -->
-<main class="container">
-    @yield('content')
+    </footer>
 </main>
-
-<!-- Bootstrap JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
-<!-- Optionnel: ton JS personnalisé -->
-@stack('scripts')
+<script src="{{asset('assets/js/vendors/jquery-3.6.0.min.js')}}"></script>
+<script src="{{asset('assets/js/vendors/bootstrap.bundle.min.js')}}"></script>
+<script src="{{asset('assets/js/vendors/select2.min.js')}}"></script>
+<script src="{{asset('assets/js/vendors/perfect-scrollbar.js')}}"></script>
+<script src="{{asset('assets/js/vendors/jquery.fullscreen.min.js')}}"></script>
+<!-- Main Script -->
+<script src="{{asset('assets/js/main.js')}}?v=6.0" type="text/javascript"></script>
 </body>
 </html>
