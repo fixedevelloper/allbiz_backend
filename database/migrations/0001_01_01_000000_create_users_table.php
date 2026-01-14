@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('phone')->unique();
-            $table->enum('role', ['admin','customer']);
+            $table->enum('role', ['admin','customer'])->default('customer');
             $table->string('password');
             $table->integer('membership_level')->default(0);
             $table->decimal('balance', 15, 2)->default(0);

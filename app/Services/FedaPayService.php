@@ -106,8 +106,8 @@ class FedaPayService
                 'firstname' => $data['name'],
                 'lastname' => $data['name'],
                 'phone_number' => [
-                    'number'  => '+22997808080',//$data['phone_number'],
-                    'country' => "bj",// strtolower($data['country'] ?? 'bj'),
+                    'number'  => $data['phone_number'],
+                    'country' =>strtolower($data['country'] ?? 'bj'),
                 ],
             ],
             "mode" => "mobile_money",

@@ -77,7 +77,7 @@ return new class extends Migration
             $table->string('reference')->nullable();
             $table->integer('amount');
             $table->enum('type', ['commission', 'withdrawal','investment']);
-            $table->enum('status', ['pending', 'success','failed']);
+            $table->enum('status', ['pending','processing', 'success','failed']);
             $table->json('meta')->nullable();
             $table->foreignId('operator_id')->nullable()->constrained('operators')->onDelete('cascade');
             $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();

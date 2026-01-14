@@ -48,13 +48,21 @@ class InvestmentController extends Controller
         ]);
 
         $user = Auth::user();
+/*
+        if ($user->investments()->where('status', 'active')->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vous avez déjà un investissement actif.',
+            ], 400);
+        }*/
 
-        if ($user->investment->status=='active') {
+        if ($user->investment && $user->investment->status === 'active') {
             return response()->json([
                 'success' => false,
                 'message' => 'Vous avez déjà un investissement actif.',
             ], 400);
         }
+
 
         DB::beginTransaction();
 

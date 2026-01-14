@@ -21,6 +21,10 @@
                 <input type="text" name="name" class="form-control" required>
             </div>
             <div class="mb-3">
+                <label class="form-label">Code</label>
+                <input type="text" name="code" class="form-control" required>
+            </div>
+            <div class="mb-3">
                 <label class="form-label">Pays</label>
                 <select name="country_id" class="form-select" required>
                     <option value="">Sélectionner un pays</option>

@@ -52,6 +52,8 @@ class WithdrawalController extends Controller
 
     /**
      * Créer une demande de retrait
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
      */
     public function store(Request $request)
     {
@@ -95,7 +97,7 @@ class WithdrawalController extends Controller
             }
 
             // ✅ Calcul taxe
-            $tax = (int) round($request->amount * 0.10);
+            $tax = (int) round($request->amount * 0.15);
             $netAmount = $request->amount - $tax;
 
             // ✅ Créer la transaction

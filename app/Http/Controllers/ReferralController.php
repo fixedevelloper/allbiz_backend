@@ -59,7 +59,7 @@ class ReferralController extends Controller
                 return [
                     'id' => $w->id,
                     'amount' => $w->amount,
-                    'status' => $w->status === 'success',
+                    'status' => $w->status,
                     'created_at' => $w->created_at,
                     'operator' => $operatorName ? [
                         'name' => $operatorName,

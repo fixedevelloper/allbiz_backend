@@ -76,7 +76,8 @@ class HookController extends Controller
     public function storeOperator(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|unique:operators,name',
+            'name' => 'required|string',
+            'code' => 'required|string',
             'country_id' => 'required|exists:countries,id',
             'status' => 'boolean',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',

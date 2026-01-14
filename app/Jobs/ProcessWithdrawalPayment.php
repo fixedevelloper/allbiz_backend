@@ -31,42 +31,38 @@ class ProcessWithdrawalPayment implements ShouldQueue
             return;
         }
 
-        DB::beginTransaction();
-
         try {
-            $started = $this->simulatePayment();
 
-            if (!$started) {
-                logger('*******je suis********');
-                DB::rollBack();
+            DB::transaction(function () {
+
+                $result = $this->simulatePayment();
+
+                if ($result === false) {
+                    $this->withdrawal->update([
+                        'status' => 'failed',
+                    ]);
+                    return;
+                }
+
                 $this->withdrawal->update([
-                    'status' => 'failed',
+                    'status' => 'processing',
                 ]);
-                return;
-            }
+            });
 
-            DB::commit();
+            // 💰 remboursement APRES commit
+            if ($this->withdrawal->status === 'failed') {
+                $this->refundUserOnce();
+            }
 
         } catch (\Throwable $e) {
 
-            DB::rollBack();
-
-            // 💰 Remboursement sécurisé
-            $this->withdrawal->user()->increment(
-                'balance',
-                $this->withdrawal->amount
-            );
-
-            $this->withdrawal->update([
-                'status' => 'failed',
-                'meta' => array_merge($this->withdrawal->meta, [
-                    'exception' => $e->getMessage(),
-                ]),
-            ]);
+            $this->refundUserOnce();
 
             throw $e;
         }
     }
+
+
 
 
     /**
@@ -76,7 +72,7 @@ class ProcessWithdrawalPayment implements ShouldQueue
     private function simulatePayment(): bool
     {
         $fedapayService = new FedaPayService();
-        $meta = $this->withdrawal->meta;
+        $meta = (array) $this->withdrawal->meta;
 
         $accountWithdraw = WithdrawAccount::findOrFail(
             $meta['account_withdraw_id']
@@ -92,66 +88,51 @@ class ProcessWithdrawalPayment implements ShouldQueue
         ]);
 
         if (!$payout->success) {
-            logger('je suis ici');
-/*
-            if ($payout->status === 403) {
-                $this->withdrawal->update([
-                    'status' => 'failed',
-                    'meta' => array_merge($meta, [
-                        'payout_error' => $payout->message
-                    ])
-                ]);
-                return false;
-            }
 
-            if ($payout->status === 404) {
-                $this->withdrawal->update([
-                    'status' => 'pending',
-                    'meta' => array_merge($meta, [
-                        'payout_error' => 'Balance indisponible',
-                        'retry_at' => now()->addMinutes(10),
-                    ])
-                ]);
-                return false;
-            }*/
-
-            logger($this->withdrawal);
-            $this->withdrawal->forceFill([
-                'status' => 'failed',
-                'meta' => array_merge(
-                    (array) $meta,
-                    ['payout_error' => $payout->message]
-                )
-            ])->save();
-
+            $this->withdrawal->meta = array_merge($meta, [
+                'payout_error' => $payout->message,
+            ]);
+           // $this->withdrawal->user->increment('balance',$this->withdrawal->amount);
             return false;
         }
 
-
-
-logger('pppppppppppppppppp');
-        // 🔐 Sauvegarde immédiate
-        $this->withdrawal->update([
-            'status' => 'processing',
-            'meta' => array_merge($meta, [
-                'payout_id' => $payout->id,
-                'payout_status' => $payout->status ?? 'pending',
-            ]),
+        $this->withdrawal->meta = array_merge($meta, [
+            'payout_id' => $payout->id,
+            'payout_status' => $payout->status ?? 'pending',
         ]);
 
-        // 🚀 Lancement réel
-        $start= $fedapayService->startPayout($payout->id);
+        $start = $fedapayService->startPayout($payout->id);
+
         if (!$start->success) {
-            $this->withdrawal->update([
-                'status' => 'pending',
-                'meta' => array_merge($meta, [
-                    'payout_error' => 'Payout créé mais non lancé',
-                ])
-            ]);
+            $this->withdrawal->meta = array_merge(
+                (array) $this->withdrawal->meta,
+                ['payout_error' => 'Payout créé mais non lancé']
+            );
+           // $this->withdrawal->user->increment('balance',$this->withdrawal->amount);
             return false;
         }
 
         return true;
+    }
+
+    private function refundUserOnce(): void
+    {
+        if (!empty($this->withdrawal->meta['refunded'])) {
+            return;
+        }
+
+        DB::transaction(function () {
+            $this->withdrawal->user()
+                ->lockForUpdate()
+                ->increment('balance', $this->withdrawal->amount);
+
+            $this->withdrawal->update([
+                'meta' => array_merge(
+                    (array) $this->withdrawal->meta,
+                    ['refunded' => true]
+                ),
+            ]);
+        });
     }
 
 

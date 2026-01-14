@@ -87,7 +87,9 @@ class SoftpayController extends Controller
         // Mettre à jour la transaction et l'investissement
         if ($status === 'approved') {
             $transaction->update(['status' => 'success']);
+            $transaction->user->update(['membership_level'=>$transaction->amount]);
             if ($transaction->investment) {
+
                 $transaction->investment->update(['status' => 'active']);
 
             }
