@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Operator;
 use App\Models\Roulette;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Rules\PhoneNumber;
+use App\Services\FedaPayService;
 use App\Services\MoneyInService;
+use App\Services\SoftpayService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Models\Investment;
@@ -40,13 +43,13 @@ class InvestmentController extends Controller
             'amount'      => 'required|integer|in:1000,2000,5000,10000',
             'phone'       => ['required', new PhoneNumber],
             'operator_id' => 'required|exists:operators,id',
-            'country_id'  => 'nullable|exists:countries,id',
+            'meta.name'   => 'required|string|max:255',
+            'meta.email'  => 'required|email|max:255',
         ]);
 
         $user = Auth::user();
 
-        // ❌ Un seul investissement actif
-        if ($user->investment) {
+        if ($user->investment->status=='active') {
             return response()->json([
                 'success' => false,
                 'message' => 'Vous avez déjà un investissement actif.',
@@ -56,57 +59,88 @@ class InvestmentController extends Controller
         DB::beginTransaction();
 
         try {
-
-            /** 🔐 Génération référence AVANT paiement */
             $referenceId = Str::uuid()->toString();
 
-            /** 1️⃣ Créer transaction (PENDING) */
+            /** 1️⃣ Transaction */
             $transaction = Transaction::create([
                 'user_id'   => $user->id,
-                'reference' => $referenceId,
                 'amount'    => $request->amount,
                 'status'    => 'pending',
                 'type'      => 'investment',
+                'reference' => $referenceId,
             ]);
 
-            /** 2️⃣ Créer investissement */
+            /** 2️⃣ Investissement */
             $investment = Investment::create([
                 'user_id'        => $user->id,
                 'amount'         => $request->amount,
-                'transaction_id'=> $transaction->id,
+                'transaction_id' => $transaction->id,
             ]);
 
-            /** 3️⃣ Commission parrainage */
+            /** 3️⃣ Commission */
             $commission = null;
             if ($user->referrer_id) {
-                $commission = $this->referralService->handleReferral($investment);
+             //   $commission = $this->referralService->handleReferral($investment);
             }
 
-            DB::commit();
 
-            /** 4️⃣ Initier paiement (APRÈS COMMIT) */
-            $this->moneyinService->initialise([
-                'reference'   => $referenceId,
-                'amount'      => $request->amount,
-                'phone'       => $request->phone,
-                'operator_id' => $request->operator_id,
+
+            /** 4️⃣ Paiement FedaPay */
+            $operator = Operator::with('country')->findOrFail($request->operator_id);
+
+            $fedaPay = new FedaPayService();
+
+            if (is_null($user->code)){
+                /** Client */
+                $customer = $fedaPay->createCustomer([
+                    'firstname' => $request->meta['name'],
+                    'lastname'  => $request->meta['name'],
+                    'email'     => $request->meta['email'],
+                    'phone'     => $request->phone,
+                    'country'   => $operator->country->iso,
+                ]);
+                if (empty($customer->id)) {
+                    throw new \Exception('Création client FedaPay échouée');
+                }
+                $user->update([
+                    'code'=>$customer->id
+                ]);
+            }
+
+
+            /** Paiement */
+            $payment = $fedaPay->collect([
+                'amount'       => $request->amount,
+                'phone'        => $request->phone,
+                'method'       => $operator->code, // mtn, orange_money, moov
+                'customer_id'  => $user->code,
+                'callback_url' => route('softpay.callback'),
             ]);
-
+            $paymentId = $payment->data->{'v1/transaction'}->id ?? null;
+            $paymentRef = $payment->data->{'v1/transaction'}->reference ?? null;
+            $paymentUrl = $payment->data->{'v1/transaction'}->payment_url ?? null;
+            //logger(json_encode($payment));
+            /** Sauvegarde infos paiement */
+            $transaction->update([
+                'reference'=>$paymentId,
+                'meta'=>[
+                    'paymentId' => $paymentId ?? null,
+                    'reference'        =>$paymentRef,
+                    'payment_url'        =>$paymentUrl,
+                ]
+            ]);
+            DB::commit();
             return response()->json([
-                'success' => true,
-                'message' => 'Investissement initialisé avec succès',
-                'referenceId' => $referenceId,
-                'investment' => $investment,
-                'commission' => $commission ? [
-                    'amount' => $commission->amount,
-                    'roulette_count' => $commission->roulette_count,
-                    'roulette_gain' => $commission->roulettes->sum('amount'),
-                ] : null,
+                'success'     => true,
+                'message'     => 'Paiement initié',
+                'referenceId' => $paymentId,
+                'payment_url' => $paymentUrl ?? null,
+                'investment'  => $investment,
             ]);
 
         } catch (\Throwable $e) {
             DB::rollBack();
-            logger()->error($e);
+            logger()->error($e->getMessage());
 
             return response()->json([
                 'success' => false,
@@ -114,6 +148,8 @@ class InvestmentController extends Controller
             ], 500);
         }
     }
+
+
 
 
     public function spin(Request $request, Roulette $roulette)

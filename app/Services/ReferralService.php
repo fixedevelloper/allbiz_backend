@@ -45,11 +45,6 @@ class ReferralService
         2 => [800, 1000],
     ];
 
-    /**
-     * Traite la commission et les roulettes pour un investissement
-     * @param Investment $investment
-     * @return |null |null
-     */
     public function handleReferral(Investment $investment)
     {
         $user = $investment->user;
@@ -59,19 +54,60 @@ class ReferralService
             return null; // pas de parrain
         }
 
-        $parrainLevel = $referrer->membership_level;
-        $investAmount = $investment->amount;
+        $this->processReferral($referrer, $investment, 1);
 
-        // Vérifie si on a des règles pour ce niveau
-        if (!isset($this->levels[$parrainLevel][$investAmount])) {
-            return null;
+        return true;
+    }
+
+    /**
+     * Traite les commissions pour un parrain donné et ses niveaux supérieurs
+     * @param User $referrer
+     * @param Investment $investment
+     * @param int $level
+     */
+    protected function processReferral($referrer, $investment, $level = 1)
+    {
+        $investAmount = (int) $investment->amount;
+
+        // Commission du premier niveau via ton tableau existant
+        if ($level === 1) {
+            $parrainLevel = $referrer->membership_level;
+
+            if (isset($this->levels[$parrainLevel][$investAmount])) {
+                $config = $this->levels[$parrainLevel][$investAmount];
+                $commissionAmount = $config['amount'];
+                $rouletteCount = $config['roulette'];
+
+                $this->createCommission($referrer, $investment, $commissionAmount, $rouletteCount);
+            }
+        }
+        // Niveaux 2 et 3
+        else if ($level === 2) {
+            $commissionAmount = $investAmount * 0.20; // 20 % du montant du filleul
+            $rouletteCount = 0; // pas de roulette pour les niveaux supérieurs
+            $this->createCommission($referrer, $investment, $commissionAmount, $rouletteCount);
+        }
+        else if ($level === 3) {
+            $commissionAmount = $investAmount * 0.10; // 10 % du montant du filleul
+            $rouletteCount = 0;
+            $this->createCommission($referrer, $investment, $commissionAmount, $rouletteCount);
         }
 
-        $config = $this->levels[$parrainLevel][$investAmount];
-        $commissionAmount = $config['amount'];
-        $rouletteCount = $config['roulette'];
+        // Passer au niveau supérieur
+        if ($referrer->referrer && $level < 3) {
+            $this->processReferral($referrer->referrer, $investment, $level + 1);
+        }
+    }
 
-        // Créer la commission
+    /**
+     * Crée la commission, la transaction et la roulette
+     * @param $referrer
+     * @param $investment
+     * @param $commissionAmount
+     * @param $rouletteCount
+     */
+    protected function createCommission($referrer, $investment, $commissionAmount, $rouletteCount)
+    {
         $commission = Commission::create([
             'referrer_id' => $referrer->id,
             'investment_id' => $investment->id,
@@ -79,10 +115,12 @@ class ReferralService
             'roulette_count' => $rouletteCount,
         ]);
 
-        Roulette::create([
-            'commission_id' => $commission->id,
-            'type' => $rouletteCount>1?'2step':'1step',
-        ]);
+        if ($rouletteCount > 0) {
+            Roulette::create([
+                'commission_id' => $commission->id,
+                'type' => $rouletteCount > 1 ? '2step' : '1step',
+            ]);
+        }
 
         Transaction::create([
             'user_id'   => $referrer->id,
@@ -91,11 +129,9 @@ class ReferralService
             'type'      => 'commission',
             'status'    => 'success',
         ]);
-        // Ajouter le montant au balance du parrain
-        $totalRoulette = $commission->roulettes()->sum('amount');
-        $referrer->balance += $commissionAmount + $totalRoulette;
-        $referrer->save();
 
-        return $commission;
+        $referrer->balance += $commissionAmount;
+        $referrer->save();
     }
+
 }

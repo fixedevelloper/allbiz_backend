@@ -24,7 +24,8 @@ class User extends Authenticatable
         'password',
         'referrer_id',
         'balance',
-        'membership_level','city','permanentaddress','presentaddress','dob','country_code'
+        'membership_level','code','presentaddress','dob','country_code'
+
     ];
 
     /**

@@ -106,6 +106,7 @@ class WithdrawalController extends Controller
                 'type'      => 'withdrawal',
                 'status'    => 'pending',
                 'meta'      => [
+                    'account_withdraw_id'=>$account->id,
                     'account_id' => $account->id,
                     'operator'   => $account->operator->name ?? null,
                     'phone'      => $account->phone,

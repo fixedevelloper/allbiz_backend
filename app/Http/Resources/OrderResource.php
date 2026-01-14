@@ -46,7 +46,7 @@ class OrderResource extends JsonResource
             ),
 
             // 🧾 Meta (optionnel)
-            'meta' => $this->meta ? json_decode($this->meta, true) : null,
+            'meta' => $this->meta ? $this->meta : null,
         ];
     }
 }

@@ -4,6 +4,7 @@ use App\Http\Controllers\InvestmentController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ReferralController;
+use App\Http\Controllers\SoftpayController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WithdrawalController;
 use App\Models\Operator;
@@ -50,4 +51,8 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::get('/momo/status/{referenceId}', [UserController::class, 'checkStatus']);
 Route::get('/roulettes/{id}',[ReferralController::class, 'myRouletteById']);
 
+Route::match(['GET','POST'],'/softpay/callback', [SoftpayController::class, 'callback'])->name('softpay.callback');
+Route::match(['GET','POST'],'/fedapay/callback', [SoftpayController::class, 'callbackOrder'])->name('fedapay.callback');
 
+Route::get('/softpay/check/{token}', [SoftpayController::class, 'checkStatus'])
+    ->name('softpay.checkStatus');
