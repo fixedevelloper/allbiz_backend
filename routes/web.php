@@ -3,8 +3,10 @@
 use App\Http\Controllers\web\AuthController;
 use App\Http\Controllers\web\CategoryController;
 use App\Http\Controllers\web\HookController;
+use App\Http\Controllers\web\InvestmentController;
 use App\Http\Controllers\web\OrderController;
 use App\Http\Controllers\web\ProductController;
+use App\Http\Controllers\web\RouletteController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -42,4 +44,9 @@ Route::delete('/orders/{order}', [OrderController::class, 'show'])
     ->name('orders.destroy');
 Route::put('/orders/{order}/status', [OrderController::class, 'updateStatus'])
     ->name('orders.updateStatus');
+    Route::resource('investments', InvestmentController::class)
+        ->only(['index', 'create', 'store']);
+
+    Route::get('roulettes', [RouletteController::class, 'index'])
+        ->name('roulettes.index');
 });

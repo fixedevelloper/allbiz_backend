@@ -82,7 +82,7 @@ class FedaPayService
                 'customer'      => [
                     'id' => $data['customer_id']
                 ],
-                'mode'=>'momo_test'
+                'mode'=>env('FEDAPAY_MODE')
 
         ]);
     }
@@ -110,7 +110,7 @@ class FedaPayService
                     'country' =>strtolower($data['country'] ?? 'bj'),
                 ],
             ],
-            "mode" => "mobile_money",
+            "mode" => env('FEDAPAY_MODE'),
             'merchant_reference' => $data['reference'],
         ]);
         return $res;
