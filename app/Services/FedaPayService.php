@@ -31,10 +31,10 @@ class FedaPayService
         $response = $this->httpRequest('customers', [
             'customer' => [
                 'firstname' => $data['firstname'] ?? '',
-                'lastname'  => $data['lastname'] ?? '',
-                'email'     => $data['email'] ?? null,
-                'phone'     => [
-                    'number'  => $data['phone'],
+                'lastname' => $data['lastname'] ?? '',
+                'email' => $data['email'] ?? null,
+                'phone' => [
+                    'number' => $data['phone'],
                     'country' => $data['country'] ?? 'BJ'
                 ]
             ]
@@ -60,7 +60,57 @@ class FedaPayService
         return $customer;
     }
 
+    /**
+     * =========================
+     * HTTP HELPERS
+     * =========================
+     * @param string $endpoint
+     * @param array $data
+     * @return object
+     */
+    private function httpRequest(string $endpoint, array $data)
+    {
+        $url = $this->base_url . $endpoint;
+logger($url);
+        logger($data);
+        try {
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json',
+                'Authorization' => 'Bearer ' . env('FEDAPAY_SECRET'),
+            ])
+                ->timeout(30)
+                ->connectTimeout(15)
+                ->post($url, $data);
 
+
+        } catch (ConnectionException $e) {
+            Log::error('FEDAPAY CONNECTION ERROR', [
+                'message' => $e->getMessage(),
+                'url' => $url
+            ]);
+
+            throw new \Exception("Impossible de contacter FedaPay");
+        }
+
+        if ($response->failed()) {
+            Log::error('FEDAPAY API ERROR', [
+                'status' => $response->status(),
+                'body' => $response->json()
+            ]);
+
+            return (object)[
+                'success' => false,
+                'message' => $response->json()['message']
+                    ?? 'Erreur lors de la requête FedaPay',
+                'errors' => $response->json()['errors'] ?? null,
+            ];
+        }
+
+        return (object)[
+            'success' => true,
+            'data' => $response->object(),
+        ];
+    }
 
     /**
      * 🔵 COLLECT : Paiement client (Mobile Money / Carte)
@@ -72,17 +122,17 @@ class FedaPayService
 
         return $this->httpRequest('transactions', [
 
-                'amount'        => $data['amount'],
-                'description'   => $data['description'] ?? 'Paiement',
-                'callback_url'  => $data['callback_url'],
-               // 'currency'     => 'XOF', // ✅ STRING (API REST)
+            'amount' => $data['amount'],
+            'description' => $data['description'] ?? 'Paiement',
+            'callback_url' => $data['callback_url'],
+            // 'currency'     => 'XOF', // ✅ STRING (API REST)
             'currency' => [
                 'iso' => 'XOF'
             ],
-                'customer'      => [
-                    'id' => $data['customer_id']
-                ],
-                'mode'=>env('FEDAPAY_MODE')
+            'customer' => [
+                'id' => $data['customer_id']
+            ],
+            'mode' => env('FEDAPAY_MODE')
 
         ]);
     }
@@ -96,8 +146,8 @@ class FedaPayService
     public function payout(array $data)
     {
         logger($data);
-        $res=$this->httpRequest('payouts', [
-            'amount' => (int) $data['amount'],
+        $res = $this->httpRequest('payouts', [
+            'amount' => (int)$data['amount'],
             'currency' => [
                 'iso' => 'XOF',
             ],
@@ -106,8 +156,8 @@ class FedaPayService
                 'firstname' => $data['name'],
                 'lastname' => $data['name'],
                 'phone_number' => [
-                    'number'  => $data['phone_number'],
-                    'country' =>strtolower($data['country'] ?? 'bj'),
+                    'number' => $data['phone_number'],
+                    'country' => strtolower($data['country'] ?? 'bj'),
                 ],
             ],
             "mode" => env('FEDAPAY_MODE'),
@@ -128,19 +178,19 @@ class FedaPayService
         $url = $this->base_url . 'payouts/start';
 
         $response = Http::withHeaders([
-            'Content-Type'  => 'application/json',
+            'Content-Type' => 'application/json',
             'Authorization' => 'Bearer ' . env('FEDAPAY_SECRET'),
         ])
             ->timeout(30)
             ->connectTimeout(15)
             ->put($url, [
-                'payout_id' => (int) $payoutId,
+                'payout_id' => (int)$payoutId,
             ]);
 
         if ($response->failed()) {
             Log::error('FEDAPAY PAYOUT START ERROR', [
                 'status' => $response->status(),
-                'body'   => $response->body(),
+                'body' => $response->body(),
             ]);
 
             throw new \Exception('Impossible de démarrer le payout FedaPay');
@@ -158,59 +208,6 @@ class FedaPayService
     {
         return $this->httpGet("transactions/{$transactionId}");
     }
-
-    /**
-     * =========================
-     * HTTP HELPERS
-     * =========================
-     * @param string $endpoint
-     * @param array $data
-     * @return object
-     */
-    private function httpRequest(string $endpoint, array $data)
-    {
-        $url = $this->base_url . $endpoint;
-
-        logger($data);
-        try {
-            $response = Http::withHeaders([
-                'Content-Type'  => 'application/json',
-                'Authorization' => 'Bearer ' . env('FEDAPAY_SECRET'),
-            ])
-                ->timeout(30)
-                ->connectTimeout(15)
-                ->post($url, $data);
-
-
-        } catch (ConnectionException $e) {
-            Log::error('FEDAPAY CONNECTION ERROR', [
-                'message' => $e->getMessage(),
-                'url'     => $url
-            ]);
-
-            throw new \Exception("Impossible de contacter FedaPay");
-        }
-
-        if ($response->failed()) {
-            Log::error('FEDAPAY API ERROR', [
-                'status' => $response->status(),
-                'body'   => $response->json()
-            ]);
-
-            return (object)[
-                'success' => false,
-                'message' => $response->json()['message']
-                    ?? 'Erreur lors de la requête FedaPay',
-                'errors'  => $response->json()['errors'] ?? null,
-            ];
-        }
-
-        return (object)[
-            'success' => true,
-            'data'    => $response->object(),
-        ];
-    }
-
 
     private function httpGet(string $endpoint)
     {
