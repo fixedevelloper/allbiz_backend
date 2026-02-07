@@ -231,4 +231,32 @@ class InvestmentController extends Controller
             'investments' => $investments
         ]);
     }
+    public function summary()
+    {
+        $user = auth()->user()->load('referrer', 'investment');
+
+        // Filleuls avec montant investi
+        $referrals = User::where('referrer_id', $user->id)
+            ->with('investment')
+            ->get()
+            ->map(function ($ref) {
+                return [
+                    'id' => $ref->id,
+                    'phone' => $ref->phone,
+                    'investment_amount' => $ref->investment?->amount ?? 0,
+            ];
+        });
+
+        return response()->json([
+                'user' => [
+                    'phone' => $user->phone,
+                    'membership_level' => $user->membership_level,
+                    'investment_amount' => $user->investment?->amount ?? 0,
+        ],
+        'referrer' => $user->referrer ? [
+        'phone' => $user->referrer->phone,
+    ] : null,
+        'referrals' => $referrals,
+    ]);
+}
 }

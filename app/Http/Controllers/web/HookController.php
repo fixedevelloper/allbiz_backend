@@ -7,6 +7,7 @@ namespace App\Http\Controllers\web;
 use App\Http\Controllers\Controller;
 use App\Models\Country;
 use App\Models\Operator;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class HookController extends Controller
@@ -26,6 +27,14 @@ class HookController extends Controller
     {
         $countries = Country::with('operators')->get();
         return view('countries.index', compact('countries'));
+    }
+    /**
+     * Afficher tous les pays avec leurs opérateurs
+     */
+    public function users()
+    {
+        $users = User::query()->get();
+        return view('users.index', compact('users'));
     }
 
     /**

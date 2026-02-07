@@ -16,6 +16,8 @@ Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
 Route::get('countries', [WithdrawalController::class, 'index']);
 Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware('auth:sanctum')->get('/user/investment-summary', [InvestmentController::class, 'summary']);
+
     // Profil utilisateur
     Route::get('me', [AuthController::class, 'me']);
     Route::post('me', [AuthController::class, 'updateProfile']);

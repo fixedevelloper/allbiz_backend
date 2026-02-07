@@ -28,6 +28,7 @@ Route::post('/countries', [HookController::class, 'storeCountry'])->name('countr
 
 Route::get('/operators/create', [HookController::class, 'createOperator'])->name('operators.create');
 Route::post('/operators', [HookController::class, 'storeOperator'])->name('operators.store');
+    Route::get('/users', [HookController::class, 'users'])->name('users.index');
 
 Route::get('/products', [ProductController::class, 'index'])->name('products.index');
 Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');

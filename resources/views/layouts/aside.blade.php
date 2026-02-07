@@ -9,51 +9,69 @@
     </div>
     <nav>
         <ul class="menu-aside">
-            <li class="menu-item active">
-                <a class="menu-link" href="{{route('dashboard')}}">
+
+            <li class="menu-item {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                <a class="menu-link" href="{{ route('dashboard') }}">
                     <i class="icon material-icons md-home"></i>
                     <span class="text">Dashboard</span>
                 </a>
             </li>
+
             <hr />
-            <li class="menu-item active">
-                <a class="menu-link" href="{{route('investments.index')}}">
+
+            <li class="menu-item {{ request()->routeIs('investments.*') ? 'active' : '' }}">
+                <a class="menu-link" href="{{ route('investments.index') }}">
                     <i class="icon material-icons md-attach_money"></i>
-                    <span class="text">Investisement</span>
+                    <span class="text">Investissement</span>
                 </a>
             </li>
-            <li class="menu-item active">
-                <a class="menu-link" href="{{route('roulettes.index')}}">
+
+            <li class="menu-item {{ request()->routeIs('roulettes.*') ? 'active' : '' }}">
+                <a class="menu-link" href="{{ route('roulettes.index') }}">
                     <i class="icon material-icons md-games"></i>
-                    <span class="text">Roullette</span>
+                    <span class="text">Roulette</span>
                 </a>
             </li>
-            <li class="menu-item active">
-                <a class="menu-link" href="{{route('dashboard')}}">
+
+            <li class="menu-item {{ request()->routeIs('users.*') ? 'active' : '' }}">
+                <a class="menu-link" href="{{ route('users.index') }}">
                     <i class="icon material-icons md-people"></i>
                     <span class="text">Utilisateurs</span>
                 </a>
             </li>
+
             <hr />
-            <li class="menu-item has-submenu">
-                <a class="menu-link" href="{{route('products.index')}}">
+
+            {{-- PRODUITS + SOUS-MENU --}}
+            <li class="menu-item has-submenu {{ request()->routeIs('products.*','categories.*') ? 'active open' : '' }}">
+                <a class="menu-link" href="#">
                     <i class="icon material-icons md-shopping_bag"></i>
                     <span class="text">Products</span>
                 </a>
-                <div class="submenu">
-                    <a href="{{route('products.index')}}">Product List</a>
-                    <a href="{{route('categories.index')}}">Categories</a>
+
+                <div class="submenu"
+                     style="{{ request()->routeIs('products.*','categories.*') ? 'display:block' : '' }}">
+                    <a class="{{ request()->routeIs('products.*') ? 'active' : '' }}"
+                       href="{{ route('products.index') }}">
+                        Product List
+                    </a>
+
+                    <a class="{{ request()->routeIs('categories.*') ? 'active' : '' }}"
+                       href="{{ route('categories.index') }}">
+                        Categories
+                    </a>
                 </div>
             </li>
 
-            <li class="menu-item">
-                <a class="menu-link" href="{{route('orders.index')}}">
+            <li class="menu-item {{ request()->routeIs('orders.*') ? 'active' : '' }}">
+                <a class="menu-link" href="{{ route('orders.index') }}">
                     <i class="icon material-icons md-shopping_cart"></i>
                     <span class="text">Orders</span>
                 </a>
             </li>
 
         </ul>
+
         <hr />
         <ul class="menu-aside">
             <li class="menu-item has-submenu">

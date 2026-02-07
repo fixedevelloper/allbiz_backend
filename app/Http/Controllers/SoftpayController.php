@@ -64,48 +64,67 @@ class SoftpayController extends Controller
      */
     public function callback(Request $request)
     {
-        Log::info('fedapay callback reçu:', $request->all());
+        Log::info('Fedapay callback reçu', $request->all());
 
-        // Récupérer les informations envoyées par Paydunya
-        $referenceId = $request->input('id'); // token ou reference selon docs Softpay
-        $status      = $request->input('status'); // SUCCESS ou FAILED
+        $referenceId = $request->input('id');
+        $status      = $request->input('status');
         $amount      = $request->input('amount');
 
         if (!$referenceId) {
-            Log::warning('fedapay callback sans token');
-            return response()->json(['message' => 'Token manquant'], 400);
+            Log::warning('Fedapay callback sans référence');
+            return response()->json(['message' => 'missing reference'], 200);
         }
 
-        // Récupérer la transaction associée
-        $transaction = Transaction::where('reference', $referenceId)->first();
+        // Réponse immédiate au provider (IMPORTANT)
+        response()->json(['status' => 'received'])->send();
 
-        if (!$transaction) {
-            Log::error("Transaction introuvable pour le token: $referenceId");
-            return redirect()->away(env('FRONTEND_URL') . '/checkout/echec-paiement');
-        }
+        // Traitement en arrière-plan
+        dispatch(function () use ($referenceId, $status, $amount) {
 
-        // Mettre à jour la transaction et l'investissement
-        if ($status === 'approved') {
-            $transaction->update(['status' => 'success']);
-            $transaction->user->update(['membership_level'=>$transaction->amount]);
-            if ($transaction->investment) {
+            DB::transaction(function () use ($referenceId, $status, $amount) {
 
-                $transaction->investment->update(['status' => 'active']);
+                $transaction = Transaction::where('reference', $referenceId)
+                    ->lockForUpdate()
+                    ->first();
 
-            }
-        } else {
-            $transaction->update(['status' => 'failed']);
-            if ($transaction->investment) {
-                $transaction->investment->update(['status' => 'failed']);
-            }
-        }
+                if (!$transaction) {
+                    Log::error("Transaction introuvable: {$referenceId}");
+                    return;
+                }
 
-        Log::info("fedapay callback traité: {$referenceId}, status: {$status}");
+                // 🔐 Idempotence
+                if ($transaction->status === 'success') {
+                    Log::info("Transaction déjà traitée: {$referenceId}");
+                    return;
+                }
 
-        // Réponse obligatoire à Paydunya
-        return redirect()->away(env('FRONTEND_URL') . '/checkout/success');
+                if ($status === 'approved') {
+                    $transaction->update(['status' => 'success']);
 
+                    $transaction->user?->update([
+                        'membership_level' => $transaction->amount
+                    ]);
+
+                if ($transaction->investment) {
+                    $transaction->investment->update(['status' => 'active']);
+                }
+            } else {
+                    $transaction->update(['status' => 'failed']);
+
+                    if ($transaction->investment) {
+                        $transaction->investment->update(['status' => 'failed']);
+                    }
+                }
+
+                Log::info("Fedapay callback traité OK: {$referenceId}");
+            });
+
+        });
+
+        // Fin du callback (rien après)
+        return;
     }
+
     public function callbackOrder(Request $request)
     {
         Log::info('fedapay callback reçu:', $request->all());
