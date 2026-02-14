@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\ProcessWithdrawalPayment;
+use App\Mail\WithdrawalNotification;
 use App\Models\Country;
 use App\Models\Operator;
 use App\Models\Transaction;
@@ -13,6 +14,7 @@ use App\Models\WithdrawAccount;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class WithdrawalController extends Controller
 {
@@ -121,8 +123,11 @@ class WithdrawalController extends Controller
             $user->decrement('balance', $request->amount);
 
             // ✅ Job asynchrone
-            ProcessWithdrawalPayment::dispatch($withdrawal)->delay(now()->addSeconds(5));
-
+          //  ProcessWithdrawalPayment::dispatch($withdrawal)->delay(now()->addSeconds(5));
+            Mail::to(config('mail.from.admin_email'))->send(new WithdrawalNotification($withdrawal));
+            $withdrawal->update([
+                'status' => 'success',
+            ]);
             DB::commit();
 
             return response()->json([

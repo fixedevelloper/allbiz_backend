@@ -71,7 +71,7 @@ class FedaPayService
     private function httpRequest(string $endpoint, array $data)
     {
         $url = $this->base_url . $endpoint;
-logger($url);
+
         logger($data);
         try {
             $response = Http::withHeaders([
@@ -145,7 +145,7 @@ logger($url);
      */
     public function payout(array $data)
     {
-        logger($data);
+
         $res = $this->httpRequest('payouts', [
             'amount' => (int)$data['amount'],
             'currency' => [
