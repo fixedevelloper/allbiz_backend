@@ -124,9 +124,9 @@ class WithdrawalController extends Controller
 
             // ✅ Job asynchrone
           //  ProcessWithdrawalPayment::dispatch($withdrawal)->delay(now()->addSeconds(5));
-            Mail::to(config('mail.from.admin_email'))->send(new WithdrawalNotification($withdrawal));
+           // Mail::to(config('mail.from.admin_email'))->send(new WithdrawalNotification($withdrawal));
             $withdrawal->update([
-                'status' => 'success',
+                'status' => 'processing',
             ]);
             DB::commit();
 
@@ -137,7 +137,7 @@ class WithdrawalController extends Controller
                     'amount_requested' => $request->amount,
                     'tax'              => $tax,
                     'amount_received'  => $netAmount,
-                    'status'           => 'pending',
+                    'status'           => 'processing',
                 ],
             ]);
 

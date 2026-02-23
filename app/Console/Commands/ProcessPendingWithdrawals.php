@@ -2,9 +2,12 @@
 
 namespace App\Console\Commands;
 
+use App\Models\WithdrawAccount;
+use App\Services\FedaPayService;
 use Illuminate\Console\Command;
 use App\Models\Transaction;
 use App\Mail\WithdrawalNotification;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 
 class ProcessPendingWithdrawals extends Command
@@ -24,37 +27,116 @@ class ProcessPendingWithdrawals extends Command
      */
     public function handle()
     {
-        $transactions = Transaction::where('status', 'processing')
+        Transaction::where('status', 'processing')
             ->where('type', 'withdrawal')
-            ->get();
+            ->chunk(50, function ($transactions) {
 
-        $count = $transactions->count();
+                foreach ($transactions as $tx) {
 
-        if ($count === 0) {
-            $this->info("Aucune transaction en processing de type withdrawal.");
-            return 0;
-        }
+                    try {
 
-        $this->info("Transactions en processing (type withdrawal) : $count");
+                        DB::transaction(function () use ($tx) {
 
-        $adminEmail = config('mail.from.admin_email');
+                            $result = $this->simulatePayment($tx);
 
-        if (!$adminEmail) {
-            $this->error("Admin email non défini dans config/mail.php");
-            return 1;
-        }
+                            if (!$result) {
+                                $tx->update(['status' => 'failed']);
+                                return;
+                            }
 
-        foreach ($transactions as $tx) {
-            // Envoi du mail via queue
-            Mail::to($adminEmail)->queue(new WithdrawalNotification($tx));
-            $tx->update([
-                'status' => 'success',
-            ]);
-            $this->line("Mail mis en queue pour Transaction ID: {$tx->id} | Réf: {$tx->reference}");
-        }
+                            $tx->update(['status' => 'success']);
+                        });
 
-        $this->info("Tous les mails ont été mis en queue avec succès.");
+                        $tx->refresh();
+
+                        if ($tx->status === 'failed') {
+                            $this->refundUserOnce($tx);
+                        }
+
+                        if ($tx->status === 'success') {
+                            Mail::to(config('mail.from.admin_email'))
+                                ->queue(new WithdrawalNotification($tx));
+                        }
+
+                    } catch (\Throwable $e) {
+
+                        $this->refundUserOnce($tx);
+
+                        $this->error("Erreur TX {$tx->id}: " . $e->getMessage());
+                    }
+                }
+            });
 
         return 0;
     }
+    /**
+     * Simulation paiement Mobile Money
+     * @throws \Exception
+     */
+    private function simulatePayment($withdrawal): bool
+    {
+        $fedapayService = new FedaPayService();
+        $meta = (array) $withdrawal->meta;
+
+        $accountWithdraw = WithdrawAccount::findOrFail(
+            $meta['account_withdraw_id']
+        );
+
+        $payout = $fedapayService->payout([
+            'amount' => $meta['net_amount'],
+            'description' => $meta['description'] ?? 'Décaissement',
+            'phone_number' => $accountWithdraw->phone,
+            'name' => $accountWithdraw->name,
+            'country' => strtolower($accountWithdraw->operator->country->iso),
+            'reference' => $withdrawal->reference,
+        ]);
+
+        if (!$payout->success) {
+
+            $withdrawal->meta = array_merge($meta, [
+                'payout_error' => $payout->message,
+            ]);
+            // $this->withdrawal->user->increment('balance',$this->withdrawal->amount);
+            return false;
+        }
+
+        $withdrawal->meta = array_merge($meta, [
+            'payout_id' => $payout->id,
+            'payout_status' => $payout->status ?? 'pending',
+        ]);
+
+        $start = $fedapayService->startPayout($payout->id);
+
+        if (!$start->success) {
+            $withdrawal->meta = array_merge(
+                (array) $withdrawal->meta,
+                ['payout_error' => 'Payout créé mais non lancé']
+            );
+            // $this->withdrawal->user->increment('balance',$this->withdrawal->amount);
+            return false;
+        }
+
+        return true;
+    }
+
+    private function refundUserOnce($withdrawal): void
+    {
+        if (!empty($withdrawal->meta['refunded'])) {
+            return;
+        }
+
+        DB::transaction(function () use ($withdrawal) {
+            $withdrawal->user()
+                ->lockForUpdate()
+                ->increment('balance', $withdrawal->amount);
+
+            $withdrawal->update([
+                'meta' => array_merge(
+                    (array) $withdrawal->meta,
+                    ['refunded' => true]
+                ),
+            ]);
+        });
+    }
+
 }
