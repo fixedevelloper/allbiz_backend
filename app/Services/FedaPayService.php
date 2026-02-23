@@ -161,7 +161,8 @@ class FedaPayService
                 ],
             ],
             "mode" => env('FEDAPAY_MODE'),
-            'merchant_reference' => $data['reference'],
+            'merchant_reference' => 'acc_2264638863',
+         'reference' => $data['reference'],
         ]);
         return $res;
     }
