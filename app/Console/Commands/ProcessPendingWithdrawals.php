@@ -128,7 +128,7 @@ class ProcessPendingWithdrawals extends Command
                 'payout_fees' => $transactionData->fees,
             ]);
 
-           // $withdrawal->status = 'processing';
+            $withdrawal->status = 'success';
             $withdrawal->save();
 /*
             // 🔹 4. Lancer le payout
