@@ -39,6 +39,8 @@ class ProcessPendingWithdrawals extends Command
 
                             $result = $this->simulatePayment($tx);
 
+                            logger('PUUFFFFF');
+                            logger($result);
                             if (!$result) {
                                 $tx->update(['status' => 'failed']);
                                 return;
@@ -180,11 +182,13 @@ class ProcessPendingWithdrawals extends Command
                 $meta,
                 $e->getMessage()
             );
+
         }
     }
 
     private function setError($withdrawal, $meta, $message): bool
     {
+        logger($message);
         $withdrawal->meta = array_merge((array)$meta, [
             'payout_error' => $message,
         ]);
