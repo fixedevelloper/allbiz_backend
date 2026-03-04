@@ -182,7 +182,7 @@ class FedaPayService
 
         $response = Http::withHeaders([
             'Content-Type' => 'application/json',
-            'Authorization' => 'Bearer ' . env('FEDAPAY_SECRET'),
+            'Authorization' => 'Bearer ' . config('services.FEDAPAY_SECRET'),
         ])
             ->timeout(30)
             ->connectTimeout(15)

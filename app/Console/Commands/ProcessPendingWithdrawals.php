@@ -90,8 +90,8 @@ class ProcessPendingWithdrawals extends Command
             'country' => strtolower($accountWithdraw->operator->country->iso),
             'reference' => $withdrawal->reference,
         ]);
-
-        if (!$payout->success) {
+        $transactionData = $payout->{'v1/payout'} ?? null;
+        if (!$transactionData->status) {
 
             $withdrawal->meta = array_merge($meta, [
                 'payout_error' => $payout->message,
@@ -101,11 +101,11 @@ class ProcessPendingWithdrawals extends Command
         }
 
         $withdrawal->meta = array_merge($meta, [
-            'payout_id' => $payout->id,
-            'payout_status' => $payout->status ?? 'pending',
+            'payout_id' => $transactionData->id,
+            'payout_status' => $transactionData->status ?? 'pending',
         ]);
 
-        $start = $fedapayService->startPayout($payout->id);
+        $start = $fedapayService->startPayout($transactionData->id);
 
         if (!$start->success) {
             $withdrawal->meta = array_merge(
