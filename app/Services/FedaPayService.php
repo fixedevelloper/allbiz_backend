@@ -160,7 +160,7 @@ class FedaPayService
                     'country' => strtolower($data['country'] ?? 'bj'),
                 ],
             ],
-            "mode" => env('FEDAPAY_MODE'),
+           // "mode" => env('FEDAPAY_MODE'),
             //'merchant_reference' => 'acc_2264638863',
        //  'merchant_reference' => $data['reference'],
         ]);
