@@ -94,6 +94,7 @@ class ProcessPendingWithdrawals extends Command
 
             $transactionData = $payout->{'v1/payout'} ?? null;
 
+            logger($payout);
             // ❗ Vérification réponse
             if (!$transactionData) {
                 $this->setError($withdrawal, $meta, 'Réponse FedaPay invalide');
