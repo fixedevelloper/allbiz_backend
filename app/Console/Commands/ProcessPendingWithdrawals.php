@@ -134,24 +134,27 @@ class ProcessPendingWithdrawals extends Command
             // 🔹 4. Lancer le payout
             $start = $fedapayService->startPayout($transactionData->id);
 
+            logger(json_encode($start));
             // ⚠️ ici réponse = tableau
-            $startData = $start[0] ?? null;
+            $startData = $start->data[0] ?? null;
 
             if (!$startData) {
-                return $this->setError(
+                 $this->setError(
                     $withdrawal,
                     (array) $withdrawal->meta,
                     'Réponse start payout invalide'
                 );
+                return false;
             }
 
             // ❗ Vérifier status final
             if ($startData['status'] === 'failed') {
-                return $this->setError(
+                $this->setError(
                     $withdrawal,
                     (array) $withdrawal->meta,
                     $startData['last_error_code'] ?? 'Echec payout'
                 );
+                return false;
             }
 
             // 🔹 5. Mise à jour finale
