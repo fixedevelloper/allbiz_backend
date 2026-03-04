@@ -83,6 +83,7 @@ class ProcessPendingWithdrawals extends Command
         );
 
         try {
+            // 🔹 1. Création du payout
             $payout = $fedapayService->payout([
                 'amount' => $meta['net_amount'],
                 'description' => $meta['description'] ?? 'Décaissement',
@@ -92,77 +93,103 @@ class ProcessPendingWithdrawals extends Command
                 'reference' => $withdrawal->reference,
             ]);
 
-            $transactionData = $payout->{'v1/payout'} ?? null;
-
-            logger($payout);
-            // ❗ Vérification réponse
-            if (!$transactionData) {
-                $this->setError($withdrawal, $meta, 'Réponse FedaPay invalide');
-                return false;
+            // ❗ Vérifier succès API
+            if (!isset($payout->success) || $payout->success !== true) {
+                return $this->setError(
+                    $withdrawal,
+                    $meta,
+                    $payout->message ?? 'Erreur création payout'
+                );
             }
 
-            // ❗ Vérification status
+            // 🔹 2. Récupération des données
+            $transactionData = $payout->data->{'v1/payout'} ?? null;
+
+            if (!$transactionData) {
+                return $this->setError($withdrawal, $meta, 'Structure réponse invalide');
+            }
+
+            // ❗ Vérifier status
             if ($transactionData->status === 'failed') {
-                $this->setError(
+                return $this->setError(
                     $withdrawal,
                     $meta,
                     $transactionData->last_error_code ?? 'Paiement échoué'
                 );
-                return false;
             }
 
-            // Sauvegarde
+            // 🔹 3. Sauvegarde initiale
+            $withdrawal->external_id = $transactionData->id;
+
             $withdrawal->meta = array_merge($meta, [
                 'payout_id' => $transactionData->id,
+                'payout_reference' => $transactionData->reference,
                 'payout_status' => $transactionData->status,
+                'payout_fees' => $transactionData->fees,
             ]);
 
-            // 🚀 Lancer le payout
+            $withdrawal->status = 'processing';
+            $withdrawal->save();
+
+            // 🔹 4. Lancer le payout
             $start = $fedapayService->startPayout($transactionData->id);
 
-// ⚠️ ici c’est un tableau
+            // ⚠️ ici réponse = tableau
             $startData = $start[0] ?? null;
 
             if (!$startData) {
-                $this->setError($withdrawal, $withdrawal->meta, 'Payout non lancé');
-                return false;
-            }
-
-// Vérifier le status réel
-            if ($startData['status'] === 'failed') {
-                $this->setError(
+                return $this->setError(
                     $withdrawal,
-                    $withdrawal->meta,
-                    $startData['last_error_code'] ?? 'Echec du payout'
+                    (array) $withdrawal->meta,
+                    'Réponse start payout invalide'
                 );
-                return false;
             }
 
-            // Mise à jour status après start
+            // ❗ Vérifier status final
+            if ($startData['status'] === 'failed') {
+                return $this->setError(
+                    $withdrawal,
+                    (array) $withdrawal->meta,
+                    $startData['last_error_code'] ?? 'Echec payout'
+                );
+            }
+
+            // 🔹 5. Mise à jour finale
             $withdrawal->meta = array_merge((array)$withdrawal->meta, [
-                'payout_status' => $startData->status,
+                'payout_status' => $startData['status'],
+                'payout_reference' => $startData['reference'],
             ]);
 
-            $withdrawal->save();
+            $withdrawal->status = match ($startData['status']) {
+            'sent' => 'success',
+            'failed' => 'failed',
+            default => 'processing',
+        };
 
-            return true;
+        $withdrawal->save();
 
-        } catch (\Throwable $e) {
+        return true;
 
-            $this->setError($withdrawal, $meta, $e->getMessage());
+    } catch (\Throwable $e) {
 
-            return false;
+            return $this->setError(
+                $withdrawal,
+                $meta,
+                $e->getMessage()
+            );
         }
     }
 
-    private function setError($withdrawal, $meta, $message)
+    private function setError($withdrawal, $meta, $message): bool
     {
-        $withdrawal->meta = array_merge($meta, [
+        $withdrawal->meta = array_merge((array)$meta, [
             'payout_error' => $message,
         ]);
 
         $withdrawal->status = 'failed';
         $withdrawal->save();
+
+        return false;
     }
 /*    private function simulatePayment($withdrawal): bool
     {
