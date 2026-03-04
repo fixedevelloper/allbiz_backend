@@ -198,8 +198,11 @@ class FedaPayService
 
             throw new \Exception('Impossible de démarrer le payout FedaPay');
         }
-
-        return $response->object();
+        Log::error('FEDAPAY PAYOUT START SUCCESS', [
+            'status' => $response->status(),
+            'body' => $response->body(),
+        ]);
+        return $response->body();
     }
 
     /**
