@@ -121,7 +121,7 @@ class ProcessPendingWithdrawals extends Command
             }
 
             // 🔹 3. Sauvegarde initiale
-            $withdrawal->external_id = $transactionData->id;
+           // $withdrawal->external_id = $transactionData->id;
 
             $withdrawal->meta = array_merge($meta, [
                 'payout_id' => $transactionData->id,
