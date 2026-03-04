@@ -128,9 +128,9 @@ class ProcessPendingWithdrawals extends Command
                 'payout_fees' => $transactionData->fees,
             ]);
 
-            $withdrawal->status = 'processing';
+           // $withdrawal->status = 'processing';
             $withdrawal->save();
-
+/*
             // 🔹 4. Lancer le payout
             $start = $fedapayService->startPayout($transactionData->id);
 
@@ -167,7 +167,7 @@ class ProcessPendingWithdrawals extends Command
             'sent' => 'success',
             'failed' => 'failed',
             default => 'processing',
-        };
+        };*/
 
         $withdrawal->save();
 
