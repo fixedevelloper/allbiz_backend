@@ -82,6 +82,96 @@ class ProcessPendingWithdrawals extends Command
             $meta['account_withdraw_id']
         );
 
+        try {
+            $payout = $fedapayService->payout([
+                'amount' => $meta['net_amount'],
+                'description' => $meta['description'] ?? 'Décaissement',
+                'phone_number' => $accountWithdraw->phone,
+                'name' => $accountWithdraw->name,
+                'country' => strtolower($accountWithdraw->operator->country->iso),
+                'reference' => $withdrawal->reference,
+            ]);
+
+            $transactionData = $payout->{'v1/payout'} ?? null;
+
+            // ❗ Vérification réponse
+            if (!$transactionData) {
+                $this->setError($withdrawal, $meta, 'Réponse FedaPay invalide');
+                return false;
+            }
+
+            // ❗ Vérification status
+            if ($transactionData->status === 'failed') {
+                $this->setError(
+                    $withdrawal,
+                    $meta,
+                    $transactionData->last_error_code ?? 'Paiement échoué'
+                );
+                return false;
+            }
+
+            // Sauvegarde
+            $withdrawal->meta = array_merge($meta, [
+                'payout_id' => $transactionData->id,
+                'payout_status' => $transactionData->status,
+            ]);
+
+            // 🚀 Lancer le payout
+            $start = $fedapayService->startPayout($transactionData->id);
+
+// ⚠️ ici c’est un tableau
+            $startData = $start[0] ?? null;
+
+            if (!$startData) {
+                $this->setError($withdrawal, $withdrawal->meta, 'Payout non lancé');
+                return false;
+            }
+
+// Vérifier le status réel
+            if ($startData['status'] === 'failed') {
+                $this->setError(
+                    $withdrawal,
+                    $withdrawal->meta,
+                    $startData['last_error_code'] ?? 'Echec du payout'
+                );
+                return false;
+            }
+
+            // Mise à jour status après start
+            $withdrawal->meta = array_merge((array)$withdrawal->meta, [
+                'payout_status' => $startData->status,
+            ]);
+
+            $withdrawal->save();
+
+            return true;
+
+        } catch (\Throwable $e) {
+
+            $this->setError($withdrawal, $meta, $e->getMessage());
+
+            return false;
+        }
+    }
+
+    private function setError($withdrawal, $meta, $message)
+    {
+        $withdrawal->meta = array_merge($meta, [
+            'payout_error' => $message,
+        ]);
+
+        $withdrawal->status = 'failed';
+        $withdrawal->save();
+    }
+/*    private function simulatePayment($withdrawal): bool
+    {
+        $fedapayService = new FedaPayService();
+        $meta = (array) $withdrawal->meta;
+
+        $accountWithdraw = WithdrawAccount::findOrFail(
+            $meta['account_withdraw_id']
+        );
+
         $payout = $fedapayService->payout([
             'amount' => $meta['net_amount'],
             'description' => $meta['description'] ?? 'Décaissement',
@@ -117,7 +207,7 @@ class ProcessPendingWithdrawals extends Command
         }
 
         return true;
-    }
+    }*/
 
     private function refundUserOnce($withdrawal): void
     {
